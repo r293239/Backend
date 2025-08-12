@@ -1,0 +1,21 @@
+{
+  "watch": [
+    "server.js",
+    ".env"
+  ],
+  "ignore": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    ".netlify/",
+    "logs/",
+    "*.log"
+  ],
+  "ext": "js,json,env",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "delay": 1000,
+  "verbose": true,
+  "restartable": "rs"
+}
