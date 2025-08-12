@@ -1,0 +1,142 @@
+# =============================================================================
+# Docker Compose Configuration - GitHub Backend API
+# =============================================================================
+# For local development and testing
+
+version: '3.8'
+
+services:
+  # Main API service
+  github-backend-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: github-backend-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Add your environment variables here or use .env file
+      - BACKEND_PASSWORD=${BACKEND_PASSWORD:-change-this-password}
+      - ACESS_TOKEN=${ACESS_TOKEN}
+      - API_KEY=${API_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-15}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENABLE_REQUEST_LOGGING=${ENABLE_REQUEST_LOGGING:-true}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - ENABLE_API_DOCS=${ENABLE_API_DOCS:-true}
+    volumes:
+      # Mount logs directory (optional)
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); http.get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - github-api-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Nginx reverse proxy for production-like setup
+  nginx:
+    image: nginx:alpine
+    container_name: github-backend-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl/certs:ro  # If you have SSL certificates
+    depends_on:
+      - github-backend-api
+    restart: unless-stopped
+    networks:
+      - github-api-network
+    profiles:
+      - with-proxy
+
+  # Optional: Redis for caching (if you want to add caching later)
+  redis:
+    image: redis:alpine
+    container_name: github-backend-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - github-api-network
+    profiles:
+      - with-cache
+    command: redis-server --appendonly yes
+
+  # Optional: PostgreSQL database (if you want to add database functionality)
+  postgres:
+    image: postgres:15-alpine
+    container_name: github-backend-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-github_backend}
+      - POSTGRES_USER=${POSTGRES_USER:-api_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - github-api-network
+    profiles:
+      - with-database
+
+# Networks
+networks:
+  github-api-network:
+    driver: bridge
+    name: github-api-network
+
+# Volumes
+volumes:
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+# =============================================================================
+# Usage Instructions:
+# =============================================================================
+#
+# Basic usage (API only):
+#   docker-compose up -d
+#
+# With Nginx proxy:
+#   docker-compose --profile with-proxy up -d
+#
+# With Redis caching:
+#   docker-compose --profile with-cache up -d
+#
+# With PostgreSQL database:
+#   docker-compose --profile with-database up -d
+#
+# All services:
+#   docker-compose --profile with-proxy --profile with-cache --profile with-database up -d
+#
+# View logs:
+#   docker-compose logs -f github-backend-api
+#
+# Stop services:
+#   docker-compose down
+#
+# Remove volumes:
+#   docker-compose down -v
+#
+# =============================================================================
