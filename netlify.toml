@@ -3,15 +3,50 @@
   functions = "netlify/functions"
   publish = "."
 
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_VERSION = "8"
+
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["sharp", "canvas"]
 
+[functions."server"]
+  included_files = ["server.js", "package.json"]
+
+# Redirect all requests to the serverless function
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/server"
   status = 200
+  force = true
+
+# Headers for security and CORS
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Development settings
+[dev]
+  command = "npm run dev"
+  port = 3000
+  publish = "."
+  autoLaunch = false
+
+# Environment variable templates (set these in Netlify dashboard)
+# ACESS_TOKEN = "your_github_personal_access_token"
+# BACKEND_PASSWORD = "your_secure_password"
+# API_KEY = "optional_api_key_for_alternative_auth"
+# ALLOWED_ORIGINS = "https://yourdomain.com,https://anotherdomain.com"
+# NODE_ENV = "production"
